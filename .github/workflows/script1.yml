@@ -205,6 +205,43 @@ jobs:
           echo "No se pudo encontrar el workflow creado"
           exit 1
         fi
+      
+    - name: Run Databricks Job WF_ADB
+      run: |
+        DEST_HOST=${{ secrets.DATABRICKS_DEST_HOST }}
+        DEST_TOKEN=${{ secrets.DATABRICKS_DEST_TOKEN }}
+        JOB_NAME="WF_ADB"
+
+        # Recupera el job_id por nombre
+        JOB_ID=$(curl -s -X GET \
+          -H "Authorization: Bearer $DEST_TOKEN" \
+          "$DEST_HOST/api/2.2/jobs/list" \
+          | jq -r --arg name "$JOB_NAME" \
+            '.jobs[]? | select(.settings.name == $name) | .job_id')
+
+        if [ -z "$JOB_ID" ] || [ "$JOB_ID" == "null" ]; then
+          echo "❌ No pude encontrar el job '$JOB_NAME'"
+          exit 1
+        fi
+
+        echo "▶️ Ejecutando job '$JOB_NAME' (ID: $JOB_ID)..."
+
+        # Lanza la ejecución
+        run_response=$(curl -s -X POST \
+          -H "Authorization: Bearer $DEST_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d "{\"job_id\": $JOB_ID}" \
+          "$DEST_HOST/api/2.2/jobs/run-now")
+
+        echo "Run-now response: $run_response"
+        RUN_ID=$(echo "$run_response" | jq -r '.run_id')
+
+        if [ "$RUN_ID" != "null" ] && [ -n "$RUN_ID" ]; then
+          echo "✅ Run iniciado con run_id: $RUN_ID"
+        else
+          echo "❌ Falló el lanzamiento del run"
+          exit 1
+        fi
     
     - name: Clean up
       run: |
