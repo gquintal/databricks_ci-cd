@@ -2,7 +2,7 @@ name: Dynamic Databricks Notebook Deploy 3
 on:
   push:
     branches:
-      - develop
+      - main
 
 jobs:
   deploy:
