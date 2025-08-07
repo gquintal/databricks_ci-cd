@@ -3,10 +3,12 @@ on:
   push:
     branches:
       - develop
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+
     - name: Checkout Repository
       uses: actions/checkout@v3
     
@@ -18,7 +20,7 @@ jobs:
         ORIGIN_HOST=${{ secrets.DATABRICKS_ORIGIN_HOST }}
         ORIGIN_TOKEN=${{ secrets.DATABRICKS_ORIGIN_TOKEN }}
         NOTEBOOK_BASE="/Workspace/Users/certificaciones@lattevida.onmicrosoft.com/source_ntbk"
-        NOTEBOOKS=("ntbk_1" "ntbk_2")  # Agrega más según necesitesas
+          NOTEBOOKS=("ntbk_1" "ntbk_2")  # Agrega más según necesites
         mkdir -p notebooks_to_deploy
         for nb in "${NOTEBOOKS[@]}"; do
           echo "Exportando $nb en modo raw..."
@@ -104,7 +106,9 @@ jobs:
                 "notebook_path": "/py/scripts/main/ntbk_1",
                 "source": "WORKSPACE"
               },
-              "job_cluster_key": "serverless_cluster",
+                "compute": {
+                  "serverless_compute": {}
+                },
               "timeout_seconds": 3600,
               "max_retries": 2
             },
@@ -115,33 +119,14 @@ jobs:
                 "notebook_path": "/py/scripts/main/ntbk_2",
                 "source": "WORKSPACE"
               },
-              "job_cluster_key": "serverless_cluster",
+                "compute": {
+                  "serverless_compute": {}
+                },
               "timeout_seconds": 3600,
               "max_retries": 2,
               "depends_on": [
-                {
-                  "task_key": "tarea1_notebook1"
-                }
+                  { "task_key": "tarea1_notebook1" }
               ]
-            }
-          ],
-          "job_clusters": [
-            {
-              "job_cluster_key": "serverless_cluster",
-              "new_cluster": {
-                "spark_version": "13.3.x-scala2.12",
-                "num_workers": 0,
-                "data_security_mode": "SINGLE_USER",
-                "runtime_engine": "STANDARD",
-                "custom_tags": {
-                  "environment": "production",
-                  "team": "data-engineering"
-                },
-                "spark_conf": {
-                  "spark.databricks.cluster.profile": "serverless",
-                  "spark.databricks.repl.allowedLanguages": "python,sql"
-                }
-              }
             }
           ],
           "schedule": {
@@ -170,7 +155,7 @@ jobs:
           -H "Authorization: Bearer $DEST_TOKEN" \
           -H "Content-Type: application/json" \
           -d @workflow_config.json \
-          "$DEST_HOST/api/2.1/jobs/create")
+            "$DEST_HOST/api/2.2/jobs/create")
         
         echo "Workflow creation response: $create_response"
         
@@ -178,18 +163,9 @@ jobs:
         job_id=$(echo "$create_response" | jq -r '.job_id')
         
         if [ "$job_id" != "" ] && [ "$job_id" != "null" ]; then
-          echo "Workflow 'WF_ADB' creado exitosamente con ID: $job_id"
-          
-          # Obtener detalles del workflow creado
-          workflow_details=$(curl -s -X GET \
-            -H "Authorization: Bearer $DEST_TOKEN" \
-            "$DEST_HOST/api/2.1/jobs/get?job_id=$job_id")
-          
-          echo "Detalles del workflow:"
-          echo "$workflow_details" | jq '.settings | {name, tasks: (.tasks | map({task_key, notebook_task: .notebook_task.notebook_path}))}'
+            echo "Workflow 'WF_ADB' creado con ID: $job_id"
         else
           echo "Error al crear el workflow"
-          echo "Response completo: $create_response"
           exit 1
         fi
     
@@ -204,9 +180,10 @@ jobs:
         # Obtener lista de workflows y encontrar el recién creado
         workflows_list=$(curl -s -X GET \
           -H "Authorization: Bearer $DEST_TOKEN" \
-          "$DEST_HOST/api/2.1/jobs/list")
+            "$DEST_HOST/api/2.2/jobs/list")
         
-        job_id=$(echo "$workflows_list" | jq -r --arg name "$WORKFLOW_NAME" '.jobs[]? | select(.settings.name == $name) | .job_id')
+          job_id=$(echo "$workflows_list" | jq -r --arg name "$WORKFLOW_NAME" \
+            '.jobs[]? | select(.settings.name == $name) | .job_id')
         
         if [ "$job_id" != "" ] && [ "$job_id" != "null" ]; then
           echo "Workflow encontrado con ID: $job_id"
@@ -223,11 +200,7 @@ jobs:
           echo "Tareas configuradas:"
           echo "$job_details" | jq -r '.settings.tasks[] | "- " + .task_key + " → " + .notebook_task.notebook_path'
           echo ""
-          echo "Cluster configurado:"
-          echo "Tipo: $(echo "$job_details" | jq -r '.settings.job_clusters[0].new_cluster.node_type_id')"
-          echo "Workers: $(echo "$job_details" | jq -r '.settings.job_clusters[0].new_cluster.num_workers')"
-          echo "Spark Version: $(echo "$job_details" | jq -r '.settings.job_clusters[0].new_cluster.spark_version')"
-          
+            echo "Compute configurado: Serverless Compute"
         else
           echo "No se pudo encontrar el workflow creado"
           exit 1
@@ -248,6 +221,6 @@ jobs:
         echo "Tareas configuradas:"
         echo "   - tarea1_notebook1 (ntbk_1)"
         echo "   - tarea2_notebook2 (ntbk_2)"
-        echo "Cluster: Serverless configurado"
+          echo "Compute: Serverless Compute"
         echo ""
         echo "Accede a tu workspace de Databricks para ver el workflow en la sección 'Workflows'"
