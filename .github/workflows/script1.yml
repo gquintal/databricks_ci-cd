@@ -2,7 +2,7 @@ name: Dynamic Databricks Notebook Deploy 3
 on:
   push:
     branches:
-      - main
+      - develop
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -130,12 +130,16 @@ jobs:
               "job_cluster_key": "serverless_cluster",
               "new_cluster": {
                 "spark_version": "13.3.x-scala2.12",
-                "size": "X-Small",
+                "num_workers": 0,
                 "data_security_mode": "SINGLE_USER",
                 "runtime_engine": "STANDARD",
                 "custom_tags": {
                   "environment": "production",
                   "team": "data-engineering"
+                },
+                "spark_conf": {
+                  "spark.databricks.cluster.profile": "serverless",
+                  "spark.databricks.repl.allowedLanguages": "python,sql"
                 }
               }
             }
